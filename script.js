@@ -1,7 +1,7 @@
 //stockscope shared javascript: stock analysis + company insights
 
 //get a free key at https://www.alphavantage.co/support/#api-key
-const API_KEY = "DJI9PT216NT89SCH";
+const API_KEY = "ZLQQTKVW58WS222S";
 
 //optional: url of your ai proxy (see worker.js). leave empty to hide the ai panel
 const AI_ENDPOINT = "";
@@ -88,42 +88,263 @@ function writeCache(params, data) {
   }
 }
 
-//----- api -----
+//----- demo mode -----
 
-//returns { data, cached }
-async function fetchAlphaVantage(params) {
-  const cached = readCache(params);
-  if (cached) return { data: cached, cached: true };
+//shown automatically when the live api can't answer (usually the free daily limit).
+//the figures below are illustrative sample data, not real market prices.
+//to add a ticker, add a profile here: price is the last close, vol/drift are daily % moves,
+//financials are [fiscal year, revenue in $bn, net income in $bn], roughly rounded.
+const DEMO_PROFILES = {
+  AAPL: {
+    name: "Apple Inc.", sector: "Technology", industry: "Consumer Electronics", exchange: "NASDAQ",
+    description: "Apple designs and sells smartphones, computers, tablets and wearables, and earns a growing share of its income from services such as the App Store, iCloud and Apple Music.",
+    employees: 164000, price: 230, vol: 1.5, drift: 0.05, beta: 1.1, pe: 35, dividend: 0.004, marketCap: 3.4e12,
+    fiscalEnd: "09-30",
+    financials: [[2020, 274.5, 57.4], [2021, 365.8, 94.7], [2022, 394.3, 99.8], [2023, 383.3, 97.0], [2024, 391.0, 93.7]]
+  },
+  MSFT: {
+    name: "Microsoft Corporation", sector: "Technology", industry: "Software - Infrastructure", exchange: "NASDAQ",
+    description: "Microsoft develops software, cloud services and devices, including Windows, Office, Azure cloud computing, LinkedIn and Xbox.",
+    employees: 228000, price: 480, vol: 1.3, drift: 0.05, beta: 0.9, pe: 35, dividend: 0.008, marketCap: 3.6e12,
+    fiscalEnd: "06-30",
+    financials: [[2020, 143.0, 44.3], [2021, 168.1, 61.3], [2022, 198.3, 72.7], [2023, 211.9, 72.4], [2024, 245.1, 88.1]]
+  },
+  NVDA: {
+    name: "NVIDIA Corporation", sector: "Technology", industry: "Semiconductors", exchange: "NASDAQ",
+    description: "NVIDIA designs graphics processors and AI computing hardware and software, used in gaming, data centres, professional visualisation and autonomous vehicles.",
+    employees: 36000, price: 180, vol: 2.8, drift: 0.7, beta: 1.8, pe: 50, dividend: 0.0003, marketCap: 4.4e12,
+    fiscalEnd: "01-31",
+    financials: [[2021, 16.7, 4.3], [2022, 26.9, 9.8], [2023, 27.0, 4.4], [2024, 60.9, 29.8], [2025, 130.5, 72.9]]
+  },
+  IBM: {
+    name: "International Business Machines Corporation", sector: "Technology", industry: "Information Technology Services", exchange: "NYSE",
+    description: "IBM provides hybrid cloud, AI, consulting and enterprise software and hardware to large organisations around the world.",
+    employees: 270000, price: 280, vol: 1.4, drift: 0.04, beta: 0.7, pe: 40, dividend: 0.025, marketCap: 2.6e11,
+    fiscalEnd: "12-31",
+    financials: [[2020, 55.2, 5.6], [2021, 57.4, 5.7], [2022, 60.5, 1.6], [2023, 61.9, 7.5], [2024, 62.8, 6.0]]
+  }
+};
 
-  if (!API_KEY || API_KEY === "YOUR_API_KEY") {
-    throw new Error("Add your Alpha Vantage API key in script.js before searching.");
+const DEMO_TICKERS = Object.keys(DEMO_PROFILES);
+
+function hashString(text) {
+  let hash = 2166136261;
+
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
   }
 
+  return hash >>> 0;
+}
+
+//small seeded random generator, so a ticker always gets the same demo chart
+function seededRandom(seed) {
+  let a = seed >>> 0;
+
+  return function () {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+//the last `count` weekdays, oldest first, ending yesterday
+function demoTradingDays(count) {
+  const days = [];
+  const date = new Date();
+  date.setUTCHours(12, 0, 0, 0);
+
+  while (days.length < count) {
+    date.setUTCDate(date.getUTCDate() - 1);
+    const weekday = date.getUTCDay();
+    if (weekday !== 0 && weekday !== 6) days.push(date.toISOString().slice(0, 10));
+  }
+
+  return days.reverse();
+}
+
+function buildDemoSeries(ticker, profile) {
+  const random = seededRandom(hashString(ticker));
+  const gaussian = () => Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
+
+  const days = demoTradingDays(100);
+  const raw = [];
+  let price = 100;
+
+  days.forEach(() => {
+    price *= 1 + (profile.drift + gaussian() * profile.vol) / 100;
+    raw.push(price);
+  });
+
+  //rescale so the series ends at the profile's price
+  const scale = profile.price / raw[raw.length - 1];
+  const series = {};
+
+  days.forEach((date, i) => {
+    series[date] = { "4. close": (raw[i] * scale).toFixed(2) };
+  });
+
+  return series;
+}
+
+//returns data in the same shape as alpha vantage, or null if there is no demo for this ticker
+function demoResponse(params) {
+  const ticker = String(params.symbol || "").toUpperCase();
+  const profile = DEMO_PROFILES[ticker];
+
+  if (!profile) return null;
+
+  if (params.function === "TIME_SERIES_DAILY") {
+    return { "Time Series (Daily)": buildDemoSeries(ticker, profile) };
+  }
+
+  if (params.function === "OVERVIEW") {
+    return {
+      Symbol: ticker,
+      Name: profile.name,
+      Sector: profile.sector,
+      Industry: profile.industry,
+      Exchange: profile.exchange,
+      Currency: "USD",
+      Description: profile.description,
+      FullTimeEmployees: String(profile.employees),
+      MarketCapitalization: String(profile.marketCap),
+      PERatio: String(profile.pe),
+      Beta: String(profile.beta),
+      DividendYield: String(profile.dividend),
+      "52WeekLow": (profile.price * 0.78).toFixed(2),
+      "52WeekHigh": (profile.price * 1.08).toFixed(2)
+    };
+  }
+
+  if (params.function === "INCOME_STATEMENT") {
+    return {
+      symbol: ticker,
+      annualReports: profile.financials.map(([year, revenue, netIncome]) => ({
+        fiscalDateEnding: `${year}-${profile.fiscalEnd}`,
+        totalRevenue: String(Math.round(revenue * 1e9)),
+        netIncome: String(Math.round(netIncome * 1e9))
+      }))
+    };
+  }
+
+  return null;
+}
+
+//notice shown above the results while demo data is on screen
+function setDemoBanner(anchorId, show) {
+  let banner = $("demoBanner");
+
+  if (!show) {
+    if (banner) banner.hidden = true;
+    return;
+  }
+
+  if (!banner) {
+    const style = document.createElement("style");
+    style.textContent = `
+      .demo-banner {
+        margin: 0 0 1.25rem;
+        padding: 0.85rem 1.1rem;
+        border: 1px solid #f5c997;
+        border-radius: 12px;
+        background: #fff7ed;
+        color: #8a4b0f;
+        font-size: 0.92rem;
+        line-height: 1.5;
+      }
+    `;
+    document.head.append(style);
+
+    banner = document.createElement("p");
+    banner.id = "demoBanner";
+    banner.className = "demo-banner";
+    banner.setAttribute("role", "status");
+
+    const strong = document.createElement("strong");
+    strong.textContent = "Demo data, live limit reached. ";
+
+    banner.append(
+      strong,
+      "The live data service has hit its daily request limit, so this page is showing illustrative sample figures, not real market prices. Live data returns automatically once the limit resets."
+    );
+  }
+
+  const anchor = $(anchorId);
+  if (anchor) anchor.before(banner);
+  banner.hidden = false;
+}
+
+//----- api -----
+
+//one live request. errors flagged fallbackToDemo mean "the live service can't answer right now"
+async function liveRequest(params) {
   const url = new URL("https://www.alphavantage.co/query");
 
   Object.entries({ ...params, apikey: API_KEY }).forEach(([key, value]) => {
     url.searchParams.set(key, value);
   });
 
-  const response = await fetch(url);
+  let response;
+
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    const networkError = new Error("Could not reach the data service. Check your connection and try again.");
+    networkError.fallbackToDemo = true;
+    throw networkError;
+  }
 
   if (!response.ok) {
-    throw new Error(`The data service returned HTTP ${response.status}. Please try again later.`);
+    const httpError = new Error(`The data service returned HTTP ${response.status}. Please try again later.`);
+    httpError.fallbackToDemo = true;
+    throw httpError;
   }
 
   const data = await response.json();
 
-  if (data.Note || data.Information || data["Error Message"]) {
-    throw new Error(
-      data.Note ||
-      data.Information ||
-      data["Error Message"] ||
-      "The data provider could not complete this request."
-    );
+  //"Note" and "Information" are how alpha vantage reports the daily or per-minute limit
+  if (data.Note || data.Information) {
+    const limitError = new Error(data.Note || data.Information);
+    limitError.fallbackToDemo = true;
+    throw limitError;
   }
 
-  writeCache(params, data);
-  return { data, cached: false };
+  //a bad ticker is a real error, not a reason to show demo data
+  if (data["Error Message"]) {
+    throw new Error(data["Error Message"]);
+  }
+
+  return data;
+}
+
+//returns { data, cached, demo }
+async function fetchAlphaVantage(params) {
+  const cached = readCache(params);
+  if (cached) return { data: cached, cached: true, demo: false };
+
+  if (!API_KEY || API_KEY === "YOUR_API_KEY") {
+    throw new Error("Add your Alpha Vantage API key in script.js before searching.");
+  }
+
+  try {
+    const data = await liveRequest(params);
+    writeCache(params, data);
+    return { data, cached: false, demo: false };
+  } catch (error) {
+    if (!error.fallbackToDemo) throw error;
+
+    const data = demoResponse(params);
+
+    //demo data is never cached, so live data takes over as soon as the limit resets
+    if (data) return { data, cached: false, demo: true };
+
+    throw new Error(
+      `The live data limit has been reached, and demo data is only available for ${DEMO_TICKERS.join(", ")}. Try one of those, or come back tomorrow.`
+    );
+  }
 }
 
 //----- formatting -----
@@ -327,7 +548,7 @@ function initStockAnalysis() {
     showMessage("stockLoading", "Fetching historical stock prices…");
 
     try {
-      const { data, cached } = await fetchAlphaVantage({
+      const { data, cached, demo } = await fetchAlphaVantage({
         function: "TIME_SERIES_DAILY",
         symbol: ticker,
         outputsize: "compact"
@@ -360,7 +581,7 @@ function initStockAnalysis() {
 
       $("stockTitle").textContent = `${ticker} Stock Analysis`;
       $("stockSubtitle").textContent =
-        `${records.length} daily closing prices · Latest date: ${latestDate}${cached ? " · saved data" : ""}`;
+        `${records.length} daily closing prices · Latest date: ${latestDate}${demo ? " · demo data" : cached ? " · saved data" : ""}`;
 
       $("latestClose").textContent = formatMoney(stats.latest);
       $("latestChange").textContent = `${formatPercent(stats.dayChange)} vs previous close`;
@@ -381,6 +602,8 @@ function initStockAnalysis() {
 
       $("stockResults").hidden = false;
       $("stockWelcome").hidden = true;
+
+      setDemoBanner("stockResults", demo);
 
       drawPriceChart(dates, prices, ticker, priceChart, (chart) => {
         priceChart = chart;
@@ -551,20 +774,30 @@ function initCompanyInsights() {
       let overview = null;
       let income = null;
       let firstError = null;
+      let usedDemo = false;
 
       try {
         const result = await fetchAlphaVantage(overviewParams);
         overview = result.data;
-        if (!result.cached) await sleep(1200);
+        usedDemo = usedDemo || result.demo;
+        if (!result.cached && !result.demo) await sleep(1200);
       } catch (error) {
         firstError = error;
         await sleep(1200);
       }
 
       try {
-        income = (await fetchAlphaVantage(incomeParams)).data;
+        const result = await fetchAlphaVantage(incomeParams);
+        income = result.data;
+        usedDemo = usedDemo || result.demo;
       } catch (error) {
         firstError = firstError || error;
+      }
+
+      //never mix live and sample figures for one company
+      if (usedDemo) {
+        overview = demoResponse(overviewParams);
+        income = demoResponse(incomeParams);
       }
 
       const hasOverview = Boolean(overview && (overview.Name || overview.Symbol));
@@ -587,6 +820,8 @@ function initCompanyInsights() {
 
       $("companyResults").hidden = false;
       $("companyWelcome").hidden = true;
+
+      setDemoBanner("companyResults", usedDemo);
 
       const analysisUrl = `index.html?ticker=${encodeURIComponent(ticker)}`;
 
