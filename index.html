@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore stock prices, returns and volatility with a beginner-friendly stock analysis dashboard.">
+  <title>StockScope | Stock Analysis</title>
+  <link rel="icon" type="image/jpeg" href="logo.jpeg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body data-page="analysis">
+
+  <header class="site-header">
+    <nav class="navbar container" aria-label="Main navigation">
+      <a class="brand" href="index.html">
+        <span class="brand-icon">S</span>
+        <span>StockScope<span class="brand-dot">.</span></span>
+      </a>
+
+      <div class="nav-links">
+        <a class="nav-link active" href="index.html">Stock Analysis</a>
+        <a class="nav-link" href="company.html">Company Insights</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container page-content">
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="status-dot"></span> YOUR MARKET DASHBOARD</span>
+        <h1>Understand the market.<br><span class="text-gradient">Make data-informed decisions.</span></h1>
+        <p class="hero-description">
+          Explore historical stock prices, understand returns and measure volatility
+          with a clean, beginner-friendly dashboard.
+        </p>
+      </div>
+
+      <div class="hero-decoration" aria-hidden="true">
+        <div class="decoration-circle circle-one"></div>
+        <div class="decoration-circle circle-two"></div>
+        <div class="mini-chart">
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel search-panel">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">MARKET EXPLORER</span>
+          <h2>Analyse a stock</h2>
+          <p>Enter a US stock ticker to explore its recent price history.</p>
+        </div>
+      </div>
+
+      <form id="stockSearchForm" class="search-form">
+        <label class="sr-only" for="tickerInput">Stock ticker symbol</label>
+        <div class="input-wrap">
+          <span class="input-prefix">$</span>
+          <input
+            id="tickerInput"
+            type="text"
+            placeholder="Enter ticker, e.g. AAPL"
+            maxlength="10"
+            autocomplete="off"
+            required
+          >
+        </div>
+        <button class="btn btn-primary" id="analyseBtn" type="submit">
+          Analyse stock <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <div class="quick-search">
+        <span>Popular:</span>
+        <button type="button" class="ticker-chip" data-ticker="AAPL">AAPL</button>
+        <button type="button" class="ticker-chip" data-ticker="MSFT">MSFT</button>
+        <button type="button" class="ticker-chip" data-ticker="NVDA">NVDA</button>
+        <button type="button" class="ticker-chip" data-ticker="IBM">IBM</button>
+      </div>
+
+      <p id="error" class="message message-error" role="alert" hidden></p>
+      <p id="stockLoading" class="message message-info" role="status" hidden>
+        Fetching the latest available stock data…
+      </p>
+    </section>
+
+    <section id="stockResults" hidden>
+      <div class="results-heading">
+        <div>
+          <span class="eyebrow">YOUR ANALYSIS</span>
+          <h2 id="stockTitle">Stock overview</h2>
+          <p id="stockSubtitle">Historical daily price data</p>
+        </div>
+        <a id="companyInsightsLink" class="btn btn-secondary" href="company.html">
+          Company insights <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Latest close</span>
+            <span class="stat-icon icon-blue">$</span>
+          </div>
+          <div class="stat-value" id="latestClose">—</div>
+          <p class="stat-note"><span id="latestChange">Change vs previous close</span></p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Return over the period</span>
+            <span class="stat-icon icon-green">↗</span>
+          </div>
+          <div class="stat-value" id="periodReturn">—</div>
+          <p class="stat-note">Change from the first to the last closing price in this sample</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Maximum drawdown</span>
+            <span class="stat-icon icon-orange">↘</span>
+          </div>
+          <div class="stat-value" id="maxDrawdown">—</div>
+          <p class="stat-note">Biggest fall from a previous peak in this sample</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Price range</span>
+            <span class="stat-icon icon-purple">↕</span>
+          </div>
+          <div class="stat-value stat-value-small" id="minMax">—</div>
+          <p class="stat-note">Lowest and highest closing prices in this sample</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Average daily return</span>
+            <span class="stat-icon icon-blue">↗</span>
+          </div>
+          <div class="stat-value" id="meanReturn">—</div>
+          <p class="stat-note">Average percentage change per trading day</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Daily volatility</span>
+            <span class="stat-icon icon-purple">⌁</span>
+          </div>
+          <div class="stat-value" id="dailyVol">—</div>
+          <p class="stat-note">Variation in daily returns</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Annualised volatility</span>
+            <span class="stat-icon icon-green">◷</span>
+          </div>
+          <div class="stat-value" id="annualVol">—</div>
+          <p class="stat-note">Daily volatility scaled to 252 trading days</p>
+        </article>
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Best / worst day</span>
+            <span class="stat-icon icon-orange">±</span>
+          </div>
+          <div class="stat-value stat-value-small" id="bestWorst">—</div>
+          <p class="stat-note">Largest daily gain and loss in this sample</p>
+        </article>
+      </div>
+
+      <article class="panel chart-panel">
+        <div class="section-heading chart-heading">
+          <div>
+            <span class="eyebrow">PRICE PERFORMANCE</span>
+            <h2>Historical closing price</h2>
+            <p>Daily closing prices with a 20-day moving average.</p>
+          </div>
+          <span class="chart-tag">USD · Daily</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="priceChart" role="img" aria-label="Historical stock closing price chart with a 20-day moving average"></canvas>
+        </div>
+      </article>
+
+      <div class="two-column">
+        <article class="panel explanation-card">
+          <span class="eyebrow">LEARN AS YOU GO</span>
+          <h3>What do these numbers mean?</h3>
+          <div class="definition-list">
+            <div>
+              <span class="definition-mark mark-blue">01</span>
+              <div>
+                <h4>Daily return</h4>
+                <p>How much the closing price changed compared with the previous trading day, expressed as a percentage.</p>
+              </div>
+            </div>
+            <div>
+              <span class="definition-mark mark-purple">02</span>
+              <div>
+                <h4>Volatility</h4>
+                <p>How much daily returns vary. Higher volatility means larger fluctuations, not necessarily better or worse performance.</p>
+              </div>
+            </div>
+            <div>
+              <span class="definition-mark mark-green">03</span>
+              <div>
+                <h4>Annualised volatility</h4>
+                <p>A common estimate that scales daily volatility by the square root of 252 trading days. It is not a forecast of returns.</p>
+              </div>
+            </div>
+            <div>
+              <span class="definition-mark mark-orange">04</span>
+              <div>
+                <h4>Drawdown and moving average</h4>
+                <p>Drawdown is the fall from a previous high. The dashed 20-day average smooths daily noise so the underlying trend is easier to see.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel next-step-card">
+          <span class="eyebrow">GO BEYOND THE PRICE</span>
+          <h3>Explore the business behind the ticker.</h3>
+          <p>
+            A share price tells only part of the story. Explore a company's sector,
+            revenue, net income and other available financial information.
+          </p>
+          <a id="companyInsightsCta" class="btn btn-primary" href="company.html">
+            Explore company insights <span aria-hidden="true">→</span>
+          </a>
+          <div class="next-step-decoration" aria-hidden="true">↗</div>
+        </article>
+      </div>
+
+      <article class="panel ai-panel" id="aiPanel" hidden>
+        <span class="eyebrow">ASK ABOUT THIS STOCK</span>
+        <h3>Not sure what a number means?</h3>
+        <p class="ai-intro">Ask a question and get a plain-English explanation based on the figures above. Educational only, not financial advice.</p>
+        <div class="quick-search">
+          <button type="button" class="ticker-chip" data-ai-prompt="Explain these numbers to a complete beginner.">Explain simply</button>
+          <button type="button" class="ticker-chip" data-ai-prompt="Is this stock volatile compared with a typical stock?">How volatile is it?</button>
+          <button type="button" class="ticker-chip" data-ai-prompt="What are the main risks to be aware of from these figures?">What are the risks?</button>
+        </div>
+        <form id="aiForm" class="search-form ai-form">
+          <label class="sr-only" for="aiQuestion">Your question</label>
+          <div class="input-wrap">
+            <input id="aiQuestion" type="text" placeholder="e.g. What does max drawdown tell me?" maxlength="300" autocomplete="off" required>
+          </div>
+          <button class="btn btn-primary" id="aiBtn" type="submit">Ask <span aria-hidden="true">→</span></button>
+        </form>
+        <div id="aiAnswer" class="ai-answer" role="status" hidden></div>
+      </article>
+    </section>
+
+    <section id="stockWelcome" class="panel welcome-panel">
+      <div class="welcome-icon" aria-hidden="true">⌕</div>
+      <h2>Your next stock analysis starts here.</h2>
+      <p>Enter a ticker above to view historical closing prices, average returns and volatility.</p>
+      <div class="welcome-features">
+        <span><span class="feature-dot"></span> Historical prices</span>
+        <span><span class="feature-dot"></span> Risk indicators</span>
+        <span><span class="feature-dot"></span> Simple explanations</span>
+      </div>
+    </section>
+
+    <p class="disclaimer">
+      <strong>Disclaimer:</strong> Educational information only, not financial advice.
+      Market data may be delayed, incomplete or subject to API limits.
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <a class="brand footer-brand" href="index.html">
+        <span class="brand-icon">S</span>
+        <span>StockScope<span class="brand-dot">.</span></span>
+      </a>
+      <span>Explore markets with more clarity.</span>
+    </div>
+  </footer>
+
+</body>
+</html>

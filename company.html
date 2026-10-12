@@ -1,0 +1,317 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Explore company profiles, financial performance and revenue history.">
+  <title>StockScope | Company Insights</title>
+  <link rel="icon" type="image/jpeg" href="logo.jpeg">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body data-page="insights">
+
+  <header class="site-header">
+    <nav class="navbar container" aria-label="Main navigation">
+      <a class="brand" href="index.html">
+        <span class="brand-icon">S</span>
+        <span>StockScope<span class="brand-dot">.</span></span>
+      </a>
+
+      <div class="nav-links">
+        <a class="nav-link" href="index.html">Stock Analysis</a>
+        <a class="nav-link active" href="company.html">Company Insights</a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="container page-content">
+    <section class="hero hero-compact">
+      <div class="hero-copy">
+        <span class="eyebrow"><span class="status-dot"></span> COMPANY RESEARCH</span>
+        <h1>Look beyond the <span class="text-gradient">share price.</span></h1>
+        <p class="hero-description">
+          Discover what a company does, explore its financial performance
+          and learn how to interpret the numbers.
+        </p>
+      </div>
+      <div class="hero-decoration" aria-hidden="true">
+        <div class="decoration-circle circle-one"></div>
+        <div class="decoration-circle circle-two"></div>
+        <div class="mini-chart">
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel search-panel">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">COMPANY EXPLORER</span>
+          <h2>Which company interests you?</h2>
+          <p>Search by ticker symbol to load available company and financial data.</p>
+        </div>
+      </div>
+
+      <form id="companySearchForm" class="search-form">
+        <label class="sr-only" for="companyTicker">Company ticker symbol</label>
+        <div class="input-wrap">
+          <span class="input-prefix">$</span>
+          <input
+            id="companyTicker"
+            type="text"
+            placeholder="Enter ticker, e.g. MSFT"
+            maxlength="10"
+            autocomplete="off"
+            required
+          >
+        </div>
+        <button class="btn btn-primary" id="companySearchBtn" type="submit">
+          Explore company <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <div class="quick-search">
+        <span>Try:</span>
+        <button type="button" class="ticker-chip" data-company-ticker="AAPL">AAPL</button>
+        <button type="button" class="ticker-chip" data-company-ticker="MSFT">MSFT</button>
+        <button type="button" class="ticker-chip" data-company-ticker="IBM">IBM</button>
+      </div>
+
+      <p id="companyError" class="message message-error" role="alert" hidden></p>
+      <p id="companyLoading" class="message message-info" role="status" hidden>
+        Gathering company and financial information…
+      </p>
+    </section>
+
+    <section id="companyWelcome" class="panel welcome-panel">
+      <div class="welcome-icon" aria-hidden="true">⌕</div>
+      <h2>Get to know the business.</h2>
+      <p>Search a company to explore its profile, financial figures and historical revenue.</p>
+      <div class="welcome-features">
+        <span><span class="feature-dot"></span> Company overview</span>
+        <span><span class="feature-dot"></span> Financial performance</span>
+        <span><span class="feature-dot"></span> Beginner-friendly insights</span>
+      </div>
+    </section>
+
+    <section id="companyResults" hidden>
+      <div class="results-heading">
+        <div>
+          <span class="eyebrow">COMPANY PROFILE</span>
+          <h2 id="companyName">Company name</h2>
+          <p id="companySubtitle">Ticker · Sector · Industry</p>
+        </div>
+        <a id="analyseCompanyLink" class="btn btn-secondary" href="index.html">
+          View stock analysis <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+
+      <article class="panel company-overview">
+        <div class="company-overview-top">
+          <div class="company-monogram" id="companyMonogram">S</div>
+          <div class="company-overview-copy">
+            <span class="eyebrow">AT A GLANCE</span>
+            <h3 id="overviewHeading">About this company</h3>
+            <p id="companyDescription">Company description will appear here when available.</p>
+          </div>
+        </div>
+
+        <div class="overview-facts">
+          <div>
+            <span class="fact-label">Sector</span>
+            <strong id="companySector">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">Industry</span>
+            <strong id="companyIndustry">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">Employees</span>
+            <strong id="companyEmployees">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">Exchange</span>
+            <strong id="companyExchange">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">52-week range</span>
+            <strong id="companyWeekRange">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">Dividend yield</span>
+            <strong id="companyDividend">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">Beta</span>
+            <strong id="companyBeta">—</strong>
+          </div>
+          <div>
+            <span class="fact-label">Profit margin</span>
+            <strong id="companyMargin">—</strong>
+          </div>
+        </div>
+      </article>
+
+      <div class="section-heading standalone-heading">
+        <div>
+          <span class="eyebrow">FINANCIAL SNAPSHOT</span>
+          <h2>The numbers that matter</h2>
+          <p>Figures provided by the data source, where available.</p>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Market capitalisation</span>
+            <span class="stat-icon icon-blue">◈</span>
+          </div>
+          <div class="stat-value stat-value-small" id="companyMarketCap">—</div>
+          <p class="stat-note">The market value of a company's outstanding shares.</p>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Latest annual revenue</span>
+            <span class="stat-icon icon-green">↗</span>
+          </div>
+          <div class="stat-value stat-value-small" id="companyRevenue">—</div>
+          <p class="stat-note">Reported income from the company's business activities.</p>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Latest annual net income</span>
+            <span class="stat-icon icon-purple">◷</span>
+          </div>
+          <div class="stat-value stat-value-small" id="companyNetIncome">—</div>
+          <p class="stat-note">Profit or loss after expenses, interest and taxes.</p>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-top">
+            <span class="stat-label">Price-to-earnings ratio</span>
+            <span class="stat-icon icon-orange">P/E</span>
+          </div>
+          <div class="stat-value" id="companyPE">—</div>
+          <p class="stat-note">Share price compared with earnings per share.</p>
+        </article>
+      </div>
+
+      <div class="two-column insights-grid">
+        <article class="panel chart-panel">
+          <div class="section-heading chart-heading">
+            <div>
+              <span class="eyebrow">REVENUE HISTORY</span>
+              <h2>Revenue and net income</h2>
+              <p>Reported annual revenue and net income over the available periods.</p>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="revenueChart" role="img" aria-label="Annual company revenue and net income chart"></canvas>
+          </div>
+          <p class="chart-footnote">Values are shown in billions of the reported currency when the source provides numeric revenue data.</p>
+        </article>
+
+        <article class="panel explanation-card">
+          <span class="eyebrow">HOW TO READ THE NUMBERS</span>
+          <h3>Financial terms, made simple</h3>
+
+          <div class="definition-list">
+            <div>
+              <span class="definition-mark mark-blue">01</span>
+              <div>
+                <h4>Revenue</h4>
+                <p>The money a business earns from selling goods or services before expenses are deducted. Growing revenue can indicate expanding sales, but does not guarantee profit.</p>
+              </div>
+            </div>
+            <div>
+              <span class="definition-mark mark-purple">02</span>
+              <div>
+                <h4>Net income</h4>
+                <p>What remains after reported expenses. Positive net income indicates a profit for the reporting period; negative net income indicates a loss.</p>
+              </div>
+            </div>
+            <div>
+              <span class="definition-mark mark-green">03</span>
+              <div>
+                <h4>Profit margin</h4>
+                <p>The percentage of revenue left as net income. It helps compare profitability, particularly between periods in the same company.</p>
+              </div>
+            </div>
+            <div>
+              <span class="definition-mark mark-orange">04</span>
+              <div>
+                <h4>P/E ratio</h4>
+                <p>Price divided by earnings per share. A high ratio may reflect growth expectations or a high valuation; a low ratio is not automatically a bargain.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <article class="panel observations-panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">DATA-BASED SUMMARY</span>
+            <h2>What stands out?</h2>
+            <p>Simple observations generated from the available company figures.</p>
+          </div>
+        </div>
+        <div id="companyObservations" class="observations-grid"></div>
+      </article>
+
+      <article class="panel ai-panel" id="aiPanel" hidden>
+        <span class="eyebrow">ASK ABOUT THIS COMPANY</span>
+        <h3>Want it explained in plain English?</h3>
+        <p class="ai-intro">Ask a question and get an explanation based on the figures above. Educational only, not financial advice.</p>
+        <div class="quick-search">
+          <button type="button" class="ticker-chip" data-ai-prompt="Explain this company's financials to a complete beginner.">Explain simply</button>
+          <button type="button" class="ticker-chip" data-ai-prompt="Is this company profitable and growing?">Profitable and growing?</button>
+          <button type="button" class="ticker-chip" data-ai-prompt="What should I compare this company with to judge its valuation?">Judge the valuation</button>
+        </div>
+        <form id="aiForm" class="search-form ai-form">
+          <label class="sr-only" for="aiQuestion">Your question</label>
+          <div class="input-wrap">
+            <input id="aiQuestion" type="text" placeholder="e.g. What does a P/E ratio of 30 mean?" maxlength="300" autocomplete="off" required>
+          </div>
+          <button class="btn btn-primary" id="aiBtn" type="submit">Ask <span aria-hidden="true">→</span></button>
+        </form>
+        <div id="aiAnswer" class="ai-answer" role="status" hidden></div>
+      </article>
+
+      <div class="panel next-step-card next-step-inline">
+        <div>
+          <span class="eyebrow">YOUR NEXT STEP</span>
+          <h3>Ready to explore its share price?</h3>
+          <p>Switch to the Stock Analysis page to review historical closing prices, returns and volatility for this ticker.</p>
+        </div>
+        <a id="analyseCompanyCta" class="btn btn-primary" href="index.html">
+          Analyse this stock <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </section>
+
+    <p class="disclaimer">
+      <strong>Disclaimer:</strong> For educational purposes only, not financial advice.
+      Financial information may be incomplete, delayed or subject to API limits.
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <a class="brand footer-brand" href="index.html">
+        <span class="brand-icon">S</span>
+        <span>StockScope<span class="brand-dot">.</span></span>
+      </a>
+      <span>Explore markets with more clarity.</span>
+    </div>
+  </footer>
+
+</body>
+</html>
